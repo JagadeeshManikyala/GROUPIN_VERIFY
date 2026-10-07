@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 class SingleCheckRequest(BaseModel):
     mobile_number: str = Field(..., description="Mobile number to verify (e.g. +919876543210)")
@@ -53,6 +53,14 @@ class JobStatusResponse(BaseModel):
     estimated_remaining_seconds: Optional[int] = None
     has_download: bool = False
 
+    @field_serializer("created_at", "started_at", "completed_at", when_used="json")
+    def serialize_job_dt(self, dt: Optional[datetime]) -> Optional[str]:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt.isoformat() + "Z"
+        return dt.isoformat()
+
 class AccountResultItem(BaseModel):
     id: int
     job_id: str
@@ -63,6 +71,12 @@ class AccountResultItem(BaseModel):
     status: str
     error: Optional[str] = None
     checked_at: datetime
+
+    @field_serializer("checked_at", when_used="json")
+    def serialize_checked_at(self, dt: datetime) -> str:
+        if dt.tzinfo is None:
+            return dt.isoformat() + "Z"
+        return dt.isoformat()
 
     class Config:
         from_attributes = True

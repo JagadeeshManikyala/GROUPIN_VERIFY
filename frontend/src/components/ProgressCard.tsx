@@ -29,6 +29,9 @@ export const ProgressCard: React.FC<ProgressCardProps> = ({
 
   const formatSeconds = (sec?: number | null) => {
     if (sec === null || sec === undefined) return '--';
+    if (sec <= 0) {
+      return isDone ? '1s' : '< 1s';
+    }
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     if (m === 0) return `${s}s`;

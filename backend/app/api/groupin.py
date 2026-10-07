@@ -183,7 +183,8 @@ async def get_job_status(job_id: str, db: Session = Depends(get_db)):
     remaining = None
     if job.started_at:
         end_time = job.completed_at or datetime.utcnow()
-        elapsed = int((end_time - job.started_at).total_seconds())
+        diff_sec = (end_time - job.started_at).total_seconds()
+        elapsed = max(1, int(round(diff_sec))) if diff_sec > 0.05 else (1 if job.completed_at else 0)
 
         if job.status == "PROCESSING" and job.processed_numbers > 0:
             rate = job.processed_numbers / max(1, elapsed)

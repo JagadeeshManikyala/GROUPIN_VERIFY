@@ -102,7 +102,7 @@ export const JobsHistoryView: React.FC<JobsHistoryViewProps> = () => {
                       {j.not_registered.toLocaleString()}
                     </td>
                     <td className="py-3 px-4 font-mono text-slate-500 text-[11px]">
-                      {new Date(j.created_at).toLocaleString()}
+                      {formatDateTime(j.created_at)}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
