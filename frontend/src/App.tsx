@@ -7,17 +7,16 @@ import { ValidationCard } from './components/ValidationCard';
 import { ProgressCard } from './components/ProgressCard';
 import { ResultsTable } from './components/ResultsTable';
 import { JobsHistoryView } from './components/JobsHistoryView';
-import { GroupMessenger } from './components/GroupMessenger';
 import { LoginPage } from './components/LoginPage';
-import { api, groupsApi } from './api';
+import { UserSettings } from './components/UserSettings';
+import { api } from './api';
 import type { UploadResponse, JobStatusResponse, AuthUser } from './types';
-import { Settings as SettingsIcon, BarChart3, MessageSquare, PhoneCall, FileSpreadsheet } from 'lucide-react';
+import { PhoneCall, FileSpreadsheet, BarChart3 } from 'lucide-react';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
     return api.getStoredUser();
   });
-  const [isMockMode, setIsMockMode] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState('checker');
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const [currentStep, setCurrentStep] = useState(1);
@@ -26,14 +25,6 @@ export function App() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null);
   const [activeJob, setActiveJob] = useState<JobStatusResponse | null>(null);
-  const [groupsApiUrl, setGroupsApiUrl] = useState<string>('https://stag-saas-messagebot.tech-v2.groupin.app');
-
-  useEffect(() => {
-    groupsApi.getBackendConfig().then(cfg => {
-      if (cfg?.base_url) setGroupsApiUrl(cfg.base_url);
-      if (cfg?.use_mock !== undefined) setIsMockMode(cfg.use_mock);
-    }).catch(() => {});
-  }, []);
 
 
   const pollIntervalRef = useRef<any>(null);
@@ -158,36 +149,17 @@ export function App() {
   // Helper for dynamic header
   const getHeaderInfo = () => {
     switch (currentView) {
-      case 'groups':
-        return {
-          title: 'Group Messenger',
-          subtitle: 'Target rooms, broadcast media & synchronize verified members via SaaS MessageBot'
-        };
-      case 'upload':
-        return {
-          title: 'Upload & Batch Check',
-          subtitle: 'Ingest spreadsheets (.xlsx, .csv) and verify numbers at scale'
-        };
-      case 'jobs':
-        return {
-          title: 'Processing Jobs',
-          subtitle: 'Monitor active and queued batch verification jobs'
-        };
       case 'history':
         return {
           title: 'Results History',
-          subtitle: 'Audit logs, verified records, and downloadable Excel reports'
-        };
-      case 'reports':
-        return {
-          title: 'Analytics & Reports',
-          subtitle: 'Performance statistics, conversion rates, and verification metrics'
+          subtitle: ''
         };
       case 'settings':
         return {
-          title: 'System Settings',
-          subtitle: 'API endpoints, authentication keys, and rate limiter configuration'
+          title: 'Account Settings',
+          subtitle: ''
         };
+      case 'checker':
       default:
         return {
           title: 'Account Checker',
@@ -215,26 +187,24 @@ export function App() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
       {/* Left Sidebar */}
-      <Sidebar currentView={currentView} onNavigate={handleNavigate} />
+      <Sidebar 
+        currentView={currentView} 
+        onNavigate={handleNavigate}
+        currentUser={currentUser}
+        onLogout={() => {
+          api.logout();
+          setCurrentUser(null);
+        }}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header 
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
-          currentUser={currentUser}
-          onLogout={() => {
-            api.logout();
-            setCurrentUser(null);
-          }}
-          isMockActive={isMockMode}
         />
 
         <main className="flex-1 p-8 max-w-7xl w-full mx-auto">
-          {/* View: Groups & Messaging */}
-          {currentView === 'groups' && (
-            <GroupMessenger onNavigateToChecker={() => { setCurrentView('checker'); setActiveTab('single'); }} />
-          )}
 
           {/* View: Account Checker / Upload & Check */}
           {(currentView === 'checker' || currentView === 'upload') && (
@@ -337,97 +307,11 @@ export function App() {
           )}
 
           {/* View: Settings */}
-          {currentView === 'settings' && (
-            <div className="space-y-6 max-w-3xl">
-              {/* Account Checker Backend Settings */}
-              <div className="bg-white rounded-xl border border-slate-200/90 p-8 shadow-xs">
-                <div className="flex items-center gap-3 mb-6">
-                  <SettingsIcon className="w-6 h-6 text-blue-600" />
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">Account Checker Engine</h2>
-                    <p className="text-xs text-slate-500">Configure batch limits, request delays, and connection keys.</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 text-xs">
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">Groupin API URL</label>
-                    <input
-                      type="text"
-                      disabled
-                      value="https://api.groupin.com/v1"
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono"
-                    />
-                    <span className="text-[11px] text-slate-400">Configured in backend .env</span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Batch Size</label>
-                      <input
-                        type="text"
-                        disabled
-                        value="50 numbers / batch"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Request Delay</label>
-                      <input
-                        type="text"
-                        disabled
-                        value="150 ms (auto-throttled)"
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-slate-500 font-medium">Adapter Mode:</span>
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
-                      High-Fidelity Mock Engine (Ready for Live Switch)
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SaaS Groups API Integration Settings */}
-              <div className="bg-white rounded-xl border border-slate-200/90 p-8 shadow-xs">
-                <div className="flex items-center gap-3 mb-6">
-                  <MessageSquare className="w-6 h-6 text-blue-600" />
-                  <div>
-                    <h2 className="text-base font-bold text-slate-900">Groups SaaS MessageBot Integration</h2>
-                    <p className="text-xs text-slate-500">API endpoint, x-api-key authentication, and broadcast proxy.</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 text-xs">
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">Groups API Base URL</label>
-                    <input
-                      type="text"
-                      disabled
-                      value={groupsApiUrl}
-                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-mono"
-                    />
-                    <span className="text-[11px] text-slate-400">Configured in backend .env (GROUPS_API_URL)</span>
-                  </div>
-
-
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-800">Direct vs Proxy Architecture</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                        Active & Protected
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                      Frontend requests can route directly to the staging SaaS service using the <code>x-api-key</code> header or pass through <code>/api/groupin/groups/*</code> to eliminate CORS obstacles and provide resilient offline mock fallback.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          {currentView === 'settings' && currentUser && (
+            <UserSettings
+              currentUser={currentUser}
+              onUserUpdate={(updated) => setCurrentUser(updated)}
+            />
           )}
         </main>
       </div>

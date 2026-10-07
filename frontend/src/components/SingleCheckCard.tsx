@@ -7,18 +7,19 @@ import {
   AlertCircle, 
   Loader2, 
   Clock, 
-  ExternalLink, 
-  MessageSquare, 
-  ChevronDown,
-  User,
-  MapPin,
-  Calendar,
-  ShieldCheck,
-  RefreshCw,
-  Mail,
-  Phone,
-  Info,
-  Star
+  User, 
+  MapPin, 
+  Calendar, 
+  ShieldCheck, 
+  RefreshCw, 
+  Mail, 
+  Phone, 
+  Info, 
+  Star,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { api } from '../api';
 import type { SingleCheckResponse } from '../types';
@@ -37,17 +38,18 @@ interface SingleCheckCardProps {
   onNavigateToMessenger?: () => void;
 }
 
-export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({ 
-  onNavigateToHistory,
-  onNavigateToMessenger
-}) => {
-  const [countryCode, setCountryCode] = useState('+91');
+export const SingleCheckCard: React.FC<SingleCheckCardProps> = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [verifyingNumber, setVerifyingNumber] = useState('');
   const [result, setResult] = useState<SingleCheckResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [checkedAtTime, setCheckedAtTime] = useState<string>('');
+  const [, setCheckedAtTime] = useState<string>('');
+
+  // Pagination & Clear modal state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [pageSize, setPageSize] = useState(20);
 
   // Recent checks state - strictly records real API checks performed by the user
   const [recentChecks, setRecentChecks] = useState<RecentCheckItem[]>(() => {
@@ -55,7 +57,6 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
       const saved = localStorage.getItem('groupin_recent_single_checks');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Filter out any prior dummy sample records so only real user checks are displayed
         return parsed.filter((item: any) => item.name !== 'Ravi Kumar' && item.name !== 'Anita Sharma');
       }
     } catch {}
@@ -74,10 +75,10 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
     const cleanDigits = phoneNumber.trim().replace(/\s+/g, '');
     if (!cleanDigits) return;
 
-    // Combine country code if user didn't type it
+    // Default to Indian numbers (+91)
     let fullNumber = cleanDigits;
     if (!cleanDigits.startsWith('+') && !cleanDigits.startsWith('91')) {
-      fullNumber = `${countryCode} ${cleanDigits}`;
+      fullNumber = `+91 ${cleanDigits}`;
     }
 
     setVerifyingNumber(fullNumber);
@@ -109,24 +110,25 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
         name: data.name || null,
         checked_at: nowStr
       };
-      saveRecentChecks([newItem, ...recentChecks.slice(0, 9)]);
+
+      const updated = [newItem, ...recentChecks];
+      saveRecentChecks(updated);
+      setCurrentPage(1); // Jump to first page to see latest check
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Failed to verify mobile number.');
+      setError(err?.response?.data?.detail || err?.message || 'Verification service temporarily unavailable.');
     } finally {
       setLoading(false);
     }
   };
 
-  const hasExtraDetails = Boolean(
-    result?.name || result?.user_id || result?.email || result?.dob ||
-    result?.alternate_phone || result?.about || result?.location
-  );
-  const initials = result?.name
-    ? result.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'GP';
+  // Pagination calculation
+  const totalPages = Math.ceil(recentChecks.length / pageSize) || 1;
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, recentChecks.length);
+  const currentItems = recentChecks.slice(startIndex, endIndex);
 
-  // Build a profile row helper
-  const profileRows: { label: string; value: string | null | undefined; icon: React.ReactNode }[] = result
+  // Extended profile data (if provided by API)
+  const profileDetails = result
     ? [
         { label: 'Mobile Number',      value: result.mobile_number,   icon: <PhoneCall className="w-3.5 h-3.5 text-blue-500" /> },
         { label: 'Groupin User ID',    value: result.user_id,          icon: <User className="w-3.5 h-3.5 text-blue-500" /> },
@@ -164,26 +166,16 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
 
         <form onSubmit={handleCheck} className="space-y-2">
           <div className="flex flex-col sm:flex-row gap-3">
-            {/* Country code selector */}
-            <div className="relative">
-              <select
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                className="appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 font-bold text-sm rounded-xl py-2.5 pl-3.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition cursor-pointer"
-              >
-                <option value="+91">+91 (IN)</option>
-                <option value="+1">+1 (US)</option>
-                <option value="+44">+44 (UK)</option>
-                <option value="+971">+971 (AE)</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            {/* Fixed Indian Country Code Prefix (+91) */}
+            <div className="flex items-center justify-center bg-slate-50 border border-slate-200 text-slate-800 font-bold text-sm rounded-xl py-2.5 px-4 select-none shrink-0 shadow-2xs">
+              +91
             </div>
 
             {/* Mobile number input */}
             <div className="relative flex-1">
               <input
                 type="text"
-                placeholder="7659955053"
+                placeholder="Enter 10-digit mobile number"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
                 className="w-full py-2.5 px-4 rounded-xl border border-slate-200 text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition"
@@ -209,10 +201,6 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
               )}
             </button>
           </div>
-
-          <p className="text-xs text-slate-400 pl-1">
-            Enter 10 digit mobile number or with country code (e.g. 9876543210 or +919876543210)
-          </p>
         </form>
 
         {/* While Checking state banner */}
@@ -250,138 +238,39 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
                   </p>
                 </div>
               </div>
-
-              <div className="flex items-center sm:flex-col sm:items-end justify-between gap-1">
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {result.status || 'Active'}
-                </span>
-                <span className="text-[11px] text-slate-400">
-                  Checked at {checkedAtTime || 'Just now'}
-                </span>
+              <div className="font-mono font-bold text-sm text-emerald-900 bg-white px-3.5 py-1.5 rounded-xl border border-emerald-300 self-start sm:self-auto shadow-2xs">
+                {result.mobile_number}
               </div>
             </div>
 
-            {/* Conditional: if only exists:true returned with no profile info */}
-            {!hasExtraDetails ? (
-              <div className="pt-4 flex items-center justify-between">
-                <span className="text-xs text-slate-600 font-medium">Registered Mobile Number:</span>
-                <span className="font-mono font-bold text-sm text-slate-900 bg-white px-3.5 py-1.5 rounded-xl border border-emerald-200 shadow-xs">
-                  {result.mobile_number}
-                </span>
-              </div>
-            ) : (
-              /* Rich profile section */
-              <div className="pt-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Profile key-value table */}
-                <div className="lg:col-span-2 bg-white/80 rounded-xl border border-emerald-200/70 p-4 shadow-xs">
-                  <table className="w-full text-xs">
-                    <tbody className="divide-y divide-slate-100">
-                      {profileRows.map((row) => (
-                        <tr key={row.label}>
-                          <td className="py-2.5 w-40">
-                            <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-                              {row.icon}
-                              {row.label}
-                            </span>
-                          </td>
-                          <td className="py-2.5 text-slate-900 font-semibold">
-                            {row.label === 'Account Status' ? (
-                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                {row.value}
-                              </span>
-                            ) : (
-                              <span className={row.label === 'Mobile Number' || row.label === 'Alternate Phone' || row.label === 'Groupin User ID' ? 'font-mono' : ''}>
-                                {row.value}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                      {/* Always show account status */}
-                      <tr>
-                        <td className="py-2.5">
-                          <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                            Account Status
-                          </span>
-                        </td>
-                        <td className="py-2.5">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            {result.status || 'Active'}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Right: Avatar + actions */}
-                <div className="lg:col-span-1 bg-white rounded-xl border border-emerald-200/70 p-4 shadow-xs flex flex-col justify-between text-center">
-                  <div>
-                    <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 font-bold text-lg flex items-center justify-center mx-auto mb-2 shadow-xs">
-                      {initials}
-                    </div>
-                    <div className="font-bold text-sm text-slate-900">{result.name || 'Groupin Member'}</div>
-                    <div className="text-[11px] text-slate-400">
-                      {result.user_type ? result.user_type + ' User' : 'Groupin User'}
-                    </div>
-                    {result.verified != null && (
-                      <div className={`mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${result.verified ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
-                        <ShieldCheck className="w-3 h-3" />
-                        {result.verified ? 'Verified' : 'Unverified'}
+            {/* Extended Profile Fields (shown when API returns profile info) */}
+            {profileDetails.length > 1 && (
+              <div className="mt-5 pt-4 border-t border-emerald-200/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {profileDetails.map((field, idx) => (
+                    <div key={idx} className="bg-white/80 p-3 rounded-xl border border-emerald-100 flex items-start gap-2.5">
+                      <div className="p-1.5 bg-emerald-50 rounded-lg shrink-0 mt-0.5">
+                        {field.icon}
                       </div>
-                    )}
-                    {result.location && (
-                      <div className="mt-2 flex items-center justify-center gap-1 text-[11px] text-slate-500">
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        {result.location}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-medium text-slate-400">{field.label}</div>
+                        <div className="text-xs font-bold text-slate-800 truncate mt-0.5">{field.value}</div>
                       </div>
-                    )}
-                    {result.about && (
-                      <p className="mt-2 text-[11px] text-slate-500 italic leading-relaxed px-1">
-                        "{result.about}"
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 mt-4 pt-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      className="w-full py-2 px-3 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition cursor-pointer"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
-                      <span>View in Groupin</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onNavigateToMessenger}
-                      className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-blue-600/20 transition cursor-pointer"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Send Message</span>
-                    </button>
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Additional Information row (user_type, last_active, verified) */}
-            {additionalRows.length > 0 && hasExtraDetails && (
-              <div className="mt-5 pt-4 border-t border-emerald-200/60">
-                <div className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Additional Information</span>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                  {additionalRows.map((row) => (
-                    <div key={row.label} className="p-3 rounded-xl bg-white/90 border border-slate-100">
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1 mb-1">
-                        {row.icon}
-                        <span>{row.label}</span>
-                      </div>
-                      <div className={`font-bold ${row.label === 'Verified' && row.value === 'Yes' ? 'text-emerald-700' : 'text-slate-800'}`}>
-                        {String(row.value)}
-                      </div>
+            {/* Additional meta attributes */}
+            {additionalRows.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-emerald-200/50">
+                <div className="flex flex-wrap gap-3">
+                  {additionalRows.map((row, idx) => (
+                    <div key={idx} className="bg-white/90 px-3.5 py-1.5 rounded-lg border border-emerald-100 flex items-center gap-2 text-xs">
+                      {row.icon}
+                      <span className="text-slate-500 font-medium">{row.label}:</span>
+                      <span className="font-bold text-slate-800">{String(row.value)}</span>
                     </div>
                   ))}
                 </div>
@@ -411,20 +300,28 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
         )}
       </div>
 
-      {/* 2. Recent Checks Table Card (From Image 2) */}
+      {/* 2. Recent Checks Table Card */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-600" />
             <h3 className="text-base font-bold text-slate-900">Recent Checks</h3>
+            {recentChecks.length > 0 && (
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                {recentChecks.length}
+              </span>
+            )}
           </div>
+
+          {/* Clear All button with Warning Confirmation */}
           <button
             type="button"
-            onClick={onNavigateToHistory}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition cursor-pointer"
+            onClick={() => setShowClearModal(true)}
+            disabled={recentChecks.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:border-rose-200 hover:bg-rose-50 text-xs font-semibold text-slate-600 hover:text-rose-600 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-slate-200 disabled:hover:text-slate-600"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-            <span>View All History</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All</span>
           </button>
         </div>
 
@@ -432,10 +329,9 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200/80">
               <tr>
-                <th className="py-3 px-4 w-12">#</th>
+                <th className="py-3 px-4 w-16">S.No</th>
                 <th className="py-3 px-4">Mobile Number</th>
                 <th className="py-3 px-4">Result</th>
-                <th className="py-3 px-4">User ID</th>
                 <th className="py-3 px-4">Name</th>
                 <th className="py-3 px-4">Checked At</th>
               </tr>
@@ -443,14 +339,16 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {recentChecks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={5} className="py-8 text-center text-slate-400">
                     No recent checks recorded. Enter a mobile number above to verify real account status.
                   </td>
                 </tr>
               ) : (
-                recentChecks.map((item, index) => (
+                currentItems.map((item, index) => (
                   <tr key={item.id} className="hover:bg-slate-50/60 transition">
-                    <td className="py-3 px-4 text-slate-400 font-mono">{index + 1}</td>
+                    <td className="py-3 px-4 text-slate-400 font-mono">
+                      {startIndex + index + 1}
+                    </td>
                     <td className="py-3 px-4 font-mono font-bold text-slate-900">
                       {item.mobile_number}
                     </td>
@@ -465,9 +363,6 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 font-mono text-slate-600">
-                      {item.user_id || '-'}
-                    </td>
                     <td className="py-3 px-4 font-medium text-slate-800">
                       {item.name || '-'}
                     </td>
@@ -480,7 +375,133 @@ export const SingleCheckCard: React.FC<SingleCheckCardProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {recentChecks.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs text-slate-500 mt-4">
+            <div className="flex items-center gap-3">
+              <div>
+                Showing <span className="font-semibold text-slate-800">{startIndex + 1}</span> to{' '}
+                <span className="font-semibold text-slate-800">{endIndex}</span> of{' '}
+                <span className="font-semibold text-slate-800">{recentChecks.length}</span> numbers
+              </div>
+
+              <div className="hidden sm:flex items-center gap-1.5 pl-3 border-l border-slate-200">
+                <span>Rows:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                title="Previous page"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>Prev</span>
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    onClick={() => setCurrentPage(pg)}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      currentPage === pg
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pg}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
+                title="Next page"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Clear All Warning Confirmation Modal */}
+      {showClearModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={() => setShowClearModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl border border-slate-200/90 max-w-sm w-full p-6 text-center animate-in zoom-in-95 duration-150 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowClearModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-5 h-5" />
+            </div>
+
+            <h3 className="text-base font-bold text-slate-900 mb-1.5">
+              Clear All Recent Checks?
+            </h3>
+            
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              Are you sure you want to clear all recent checks? This will permanently remove {recentChecks.length} verification record{recentChecks.length === 1 ? '' : 's'} from your view.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearModal(false)}
+                className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  saveRecentChecks([]);
+                  setCurrentPage(1);
+                  setShowClearModal(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs hover:shadow transition cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Yes, Clear All</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -98,7 +98,7 @@ def get_effective_api_key(header_key: Optional[str]) -> str:
     return settings.GROUPS_API_KEY or ""
 
 def get_target_url(endpoint: str) -> str:
-    base = settings.GROUPS_API_URL.rstrip('/')
+    base = (settings.GROUPS_API_URL or "").rstrip('/')
     if not base.endswith('/api/v1'):
         base = f"{base}/api/v1"
     clean_ep = endpoint.lstrip('/')

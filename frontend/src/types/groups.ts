@@ -1,6 +1,5 @@
 /**
  * TypeScript Interfaces for Groups API
- * Base URL: https://stag-saas-messagebot.tech-v2.groupin.app
  */
 
 export interface ApiResponse<T = unknown> {

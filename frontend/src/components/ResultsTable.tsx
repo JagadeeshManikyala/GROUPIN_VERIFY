@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api';
 import type { ResultsPageResponse, AccountResultItem } from '../types';
+import { formatTime, formatDateTime } from '../utils/date';
 
 interface ResultsTableProps {
   jobId: string;
@@ -20,14 +21,19 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
   const [data, setData] = useState<ResultsPageResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const fetchResults = async (newPage: number = page, term: string = search, status: string = statusFilter) => {
+  const fetchResults = async (
+    newPage: number = page, 
+    term: string = search, 
+    status: string = statusFilter,
+    currentPageSize: number = pageSize
+  ) => {
     setLoading(true);
     try {
-      const res = await api.getJobResults(jobId, newPage, pageSize, term, status);
+      const res = await api.getJobResults(jobId, newPage, currentPageSize, term, status);
       setData(res);
       setPage(newPage);
     } catch (err) {
@@ -39,23 +45,26 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
 
   useEffect(() => {
     if (jobId) {
-      fetchResults(1, search, statusFilter);
+      fetchResults(1, search, statusFilter, pageSize);
     }
   }, [jobId, statusFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchResults(1, search, statusFilter);
+    fetchResults(1, search, statusFilter, pageSize);
   };
 
   const handleFilterChange = (status: string) => {
     setStatusFilter(status);
-    fetchResults(1, search, status);
+    fetchResults(1, search, status, pageSize);
   };
 
   const items: AccountResultItem[] = data?.items || [];
   const total = data?.total || 0;
-  const totalPages = data?.total_pages || 1;
+  const totalPages = data?.total_pages || Math.ceil(total / pageSize) || 1;
+
+  const startIdx = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const endIdx = Math.min(total, (page - 1) * pageSize + items.length);
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -64,7 +73,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
         <div>
           <h2 className="text-base font-bold text-slate-900">Verification Results</h2>
           <p className="text-xs text-slate-500">
-            Showing {items.length} of {total.toLocaleString()} records • Search and filter verified numbers
+            Showing {startIdx} to {endIdx} of {total.toLocaleString()} records • Search and filter verified numbers
           </p>
         </div>
 
@@ -83,7 +92,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
 
           {/* Refresh Button */}
           <button
-            onClick={() => fetchResults(page, search, statusFilter)}
+            type="button"
+            onClick={() => fetchResults(page, search, statusFilter, pageSize)}
             disabled={loading}
             title="Refresh Results"
             className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
@@ -115,6 +125,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
         ].map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => handleFilterChange(tab.id)}
             className={`px-3 py-1 text-xs font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
               statusFilter === tab.id
@@ -132,7 +143,7 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
         <table className="w-full text-left text-xs">
           <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200/80">
             <tr>
-              <th className="py-3 px-4 w-12 text-center">#</th>
+              <th className="py-3 px-4 w-12 text-center">S.No</th>
               <th className="py-3 px-4">Mobile Number</th>
               <th className="py-3 px-4">Groupin Account</th>
               <th className="py-3 px-4">Groupin User ID</th>
@@ -201,8 +212,11 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-4 text-slate-500 font-mono text-[11px]">
-                      {new Date(row.checked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    <td 
+                      className="py-2.5 px-4 text-slate-500 font-mono text-[11px]"
+                      title={formatDateTime(row.checked_at)}
+                    >
+                      {formatTime(row.checked_at)}
                     </td>
                   </tr>
                 );
@@ -213,25 +227,75 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ jobId, isJobComplete
       </div>
 
       {/* Pagination Footer */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/40 flex items-center justify-between text-xs text-slate-600">
-        <div>
-          Showing page <span className="font-semibold text-slate-900">{page}</span> of{' '}
-          <span className="font-semibold text-slate-900">{totalPages}</span> ({total.toLocaleString()} total rows)
+      <div className="p-4 border-t border-slate-100 bg-slate-50/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
+        <div className="flex items-center gap-3">
+          <div>
+            Showing <span className="font-semibold text-slate-900">{startIdx}</span> to{' '}
+            <span className="font-semibold text-slate-900">{endIdx}</span> of{' '}
+            <span className="font-semibold text-slate-900">{total.toLocaleString()}</span> records
+            {totalPages > 1 && (
+              <span className="text-slate-400 ml-1">
+                (Page {page} of {totalPages})
+              </span>
+            )}
+          </div>
+
+          <div className="hidden sm:flex items-center gap-1.5 pl-3 border-l border-slate-200">
+            <span>Rows:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const newSize = Number(e.target.value);
+                setPageSize(newSize);
+                setPage(1);
+                fetchResults(1, search, statusFilter, newSize);
+              }}
+              className="bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-2xs"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 self-end sm:self-auto">
           <button
-            onClick={() => fetchResults(page - 1, search, statusFilter)}
+            type="button"
+            onClick={() => fetchResults(Math.max(1, page - 1), search, statusFilter, pageSize)}
             disabled={page <= 1 || loading}
-            className="px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 shadow-2xs"
+            title="Previous page"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            <span>Previous</span>
+            <span>Prev</span>
           </button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.max(1, totalPages) }, (_, i) => i + 1).map((pg) => (
+              <button
+                key={pg}
+                type="button"
+                onClick={() => fetchResults(pg, search, statusFilter, pageSize)}
+                disabled={loading}
+                className={`w-7 h-7 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  page === pg
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {pg}
+              </button>
+            ))}
+          </div>
+
           <button
-            onClick={() => fetchResults(page + 1, search, statusFilter)}
+            type="button"
+            onClick={() => fetchResults(Math.min(totalPages, page + 1), search, statusFilter, pageSize)}
             disabled={page >= totalPages || loading}
-            className="px-2.5 py-1.5 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 transition-colors flex items-center gap-1 cursor-pointer font-medium"
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 shadow-2xs"
+            title="Next page"
           >
             <span>Next</span>
             <ChevronRight className="w-3.5 h-3.5" />

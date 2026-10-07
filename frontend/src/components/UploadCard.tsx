@@ -76,7 +76,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
         <div>
           <h2 className="text-base font-bold text-slate-900">Upload Excel File</h2>
           <p className="text-xs text-slate-500">
-            Upload spreadsheets containing up to 100,000+ customer mobile numbers for verification.
+            Upload spreadsheets containing up to 1000+ customer mobile numbers for verification.
           </p>
         </div>
 
@@ -87,7 +87,7 @@ export const UploadCard: React.FC<UploadCardProps> = ({
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 transition-colors shadow-2xs w-fit"
         >
           <Download className="w-3.5 h-3.5 text-blue-600" />
-          <span>Download Sample File</span>
+          <span>Download File</span>
         </a>
       </div>
 

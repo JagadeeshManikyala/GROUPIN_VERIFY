@@ -97,6 +97,31 @@ export const api = {
 
   getStoredToken: () => {
     return localStorage.getItem('groupin_auth_token');
+  },
+
+  saveStoredUser: (user: any) => {
+    localStorage.setItem('groupin_auth_user', JSON.stringify(user));
+  },
+
+  updateProfile: async (payload: {
+    name?: string;
+    email?: string;
+    current_password?: string;
+    new_password?: string;
+    avatar?: string;
+  }): Promise<any> => {
+    const token = localStorage.getItem('groupin_auth_token');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await axios.post('/api/auth/update-profile', payload, { headers });
+    if (res.data?.access_token) {
+      localStorage.setItem('groupin_auth_token', res.data.access_token);
+    }
+    if (res.data?.user) {
+      localStorage.setItem('groupin_auth_user', JSON.stringify(res.data.user));
+    }
+    return res.data;
   }
 };
 

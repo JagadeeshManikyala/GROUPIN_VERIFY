@@ -10,7 +10,7 @@ import type {
   MediaType
 } from '../types/groups';
 
-export const DEFAULT_GROUPS_API_BASE = 'https://stag-saas-messagebot.tech-v2.groupin.app/api/v1';
+export const DEFAULT_GROUPS_API_BASE = '/api/groupin/groups';
 export const BACKEND_PROXY_GROUPS_BASE = '/api/groupin/groups';
 
 export class GroupsApiClient {

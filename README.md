@@ -127,7 +127,7 @@ Frontend URL: `http://localhost:5173`
 
 ## Groups SaaS Bot API Integration
 
-The platform includes a dedicated **Group Messenger** interface powered by the Groupin SaaS MessageBot API (`https://stag-saas-messagebot.tech-v2.groupin.app`):
+The platform includes a dedicated **Group Messenger** interface powered by the Groupin SaaS MessageBot API:
 
 ### Supported Endpoints:
 1. `GET /groups/list` — Lists groups where user has send permissions, including affiliation badges (`owner`, `admin`, `member`) and allowed media matrix.
@@ -137,8 +137,8 @@ The platform includes a dedicated **Group Messenger** interface powered by the G
 ### Configuration (`backend/.env`):
 | Variable | Default | Description |
 |---|---|---|
-| `GROUPS_API_URL` | `https://stag-saas-messagebot.tech-v2.groupin.app` | Staging/Production SaaS MessageBot Base URL |
-| `GROUPS_API_KEY` | `test_saas_groupin_key` | SaaS API Key passed via `x-api-key` header |
+| `GROUPS_API_URL` | `your_groups_api_url_here` | SaaS MessageBot Base URL (configured in backend/.env) |
+| `GROUPS_API_KEY` | `your_groups_api_key_here` | SaaS API Key passed via `x-api-key` header (never committed) |
 
 ---
 
